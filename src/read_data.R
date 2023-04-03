@@ -30,14 +30,14 @@
 
 ## Functions for processing the input data
 
-ReadGallups <- function(path, time.unit="days") {
+ReadGallups <- function(path, start.date, time.unit="days") {
     gallups <- read.table(path, sep='\t', header=TRUE)
     gallups$Sample_size <- as.numeric(gsub(" ", "", gallups$Sample_size)) ## TODO fix format
     gallups$LIIK <- as.numeric(gsub("— ", NA, gallups$LIIK)) ## TODO set as empty
 
     ## Convere Finnish format dates into time from first entry
     gallups$Date <- as.POSIXlt(gallups$Date, format = "%d.%m.%Y")
-    gallups$days_since_election <- difftime(time1=gallups$Date, time2=gallups$Date[nrow(gallups)], tz="GMT", units=time.unit)
+    gallups$days_since_election <- difftime(time1=gallups$Date, time2=as.POSIXlt(start.date, format="%d.%m.%Y"), tz="GMT", units=time.unit)
 
     ## Remove rows that have missing values
     ## This could be modelled in the GP kernel, see
@@ -52,16 +52,4 @@ ReadGallups <- function(path, time.unit="days") {
     gallups <- gallups[order(gallups$days_since_election), ]
 
     gallups
-}
-
-CreateStanData <- function(gallups, dates_to_predict, date_format="%d.%m.%Y", time.unit="days", time.scaling.factor=7) {
-    dates_to_predict <- as.numeric(difftime(time1=as.POSIXlt(dates_to_predict, format=date_format), time2=gallups$Date[1], units=time.unit))
-    list("N_obs" = nrow(gallups),
-         "P_obs" = length(4:ncol(gallups)) - 1,
-         "time_from_start_obs" = as.numeric(gallups$days_since_election/time.scaling.factor),
-         "party_support" = gallups[, 4:(ncol(gallups) - 1)],
-         "N_pollsters" = length(unique(gallups$Pollster)),
-         "pollsters" = as.numeric(factor(gallups$Pollster)),
-         "N_pred" = length(dates_to_predict) + 1, ## Predict 1 week further than requested
-         "time_from_start_pred" = c(dates_to_predict, dates_to_predict[length(dates_to_predict)] + 7)/time.scaling.factor)
 }
