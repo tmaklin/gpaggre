@@ -41,7 +41,7 @@ source("src/read_data.R")
 options(mc.cores = 4)
 
 ## Read in the data
-gallups <- ReadGallups("data/polling_data_2019-2023.tsv")
+gallups <- ReadGallups("data/polling_data_2019-2023.tsv", "14.4.2019")
 
 ## Process the gallup data into the Stan model format
 stan.data <- CreateStanData(gallups, "2.4.2023", date_format="%d.%m.%Y", time.unit="days", time.scaling.factor=1)
