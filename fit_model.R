@@ -44,7 +44,20 @@ options(mc.cores = 4)
 gallups <- ReadGallups("data/polling_data_2019-2023.tsv", "14.4.2019")
 
 ## Process the gallup data into the Stan model format
-stan.data <- CreateStanData(gallups, "2.4.2023", date_format="%d.%m.%Y", time.unit="days", time.scaling.factor=1)
+## Process the gallup data into the Stan model format
+time.scaling.factor <- 1
+dates_to_predict <- c("9.4.2023")
+date_format <- "%d.%m.%Y"
+time.unit <- "days"
+dates_to_predict <- as.numeric(difftime(time1=as.POSIXlt(dates_to_predict, format=date_format), time2=gallups$Date[1], units=time.unit))
+stan.data <- list("N_obs" = nrow(gallups),
+                  "P_obs" = length(4:ncol(gallups)) - 1,
+                  "time_from_start_obs" = as.numeric(gallups$days_since_election/time.scaling.factor),
+                  "party_support" = gallups[, 4:(ncol(gallups) - 1)],
+                  "N_pollsters" = length(unique(gallups$Pollster)),
+                  "pollsters" = as.numeric(factor(gallups$Pollster)),
+                  "N_pred" = length(dates_to_predict) + 1, ## Predict 1 week further than requested
+                  "time_from_start_pred" = c(dates_to_predict, dates_to_predict[length(dates_to_predict)] + 7)/time.scaling.factor)
 
 ## Compile Stan model
 stan.model <- stan_model("src/gp_poll_aggregator.stan")
