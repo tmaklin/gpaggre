@@ -49,8 +49,11 @@ sigfig <- function(vec, digits){
     return(gsub("\\.$", "", formatC(signif(vec,digits=digits), digits=digits, format="fg", flag="#")))
 }
 
-PlotFit <- function(samples, gallups) {
+PlotFit <- function(samples, gallups, elections) {
     ## Plot `samples` from the GP fit on `gallups`.
+    in.data <- rbind(gallups, elections)
+    data.order <- order(in.data$Date)
+    in.data <- in.data[data.order, ]
 
     ## Extract the GP predictions
     support.samples <- extract(samples, "f")
@@ -63,6 +66,9 @@ PlotFit <- function(samples, gallups) {
 
     ## Transform the unbounded values to range (0, 100)
     support.mean <- t(apply(support.average, 1, function(x) exp(bias + x)/(1 + sum(exp(bias + x)))))
+    data.order <- c(data.order, (length(data.order) + 1):nrow(support.mean))
+    support.mean <- support.mean[data.order, ]
+
     ## Party colors
     cols <- c("#f54b4b", "lightblue", "#00517d", "#3aad2e", "#284735", "#f00A64", "#e1ad01", "#7851a9", "#b42079")
 
@@ -73,12 +79,13 @@ PlotFit <- function(samples, gallups) {
     plot(',', xlim=c(0, nrow(support.mean)), ylim=c(0, 30), ylab="Kannatus (%)", xlab="", bty='n', xaxt='n', cex.lab=1.2)
     other.parties.support <- 1 - rowSums(support.mean)
     lines(x=1:nrow(support.mean), y=other.parties.support*100, type='l', col="gray", lwd=2)
-    lines(x=1:nrow(gallups), y=gallups[, 3 + ncol(gallups) - 3 - 1], type='p', col="gray")
+    lines(x=1:nrow(in.data), y=in.data[, 3 + ncol(in.data) - 3 - 1], type='p', pch=ifelse(grepl("vaalit", in.data$Pollster), 16, 1), col="gray")
+
     axis(side=1, at=c(seq(1, nrow(gallups), by=15), 90), labels=gsub("[-][0-9][0-9]$", "", as.character(c(gallups$Date, as.POSIXlt("2.4.2023", format="%d.%m.%Y"))))[c(seq(1, nrow(gallups), by=15), 90)])
     ## Plot the estimated party suppports
     for (i in 1:(ncol(gallups) - 3 - 1 - 1)) {
         lines(x=1:nrow(support.mean), y=support.mean[, i]*100, type='l', col=cols[i], lwd=2)
-        lines(x=1:nrow(gallups), y=gallups[, 3 + i], type='p', col=cols[i])
+        lines(x=1:nrow(in.data), y=in.data[, 3 + i], type='p', , pch=ifelse(grepl("vaalit", in.data$Pollster), 16, 1), col=cols[i])
     }
     ## Plot the constrained variable (other parties support in polling)
 

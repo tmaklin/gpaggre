@@ -41,7 +41,9 @@ load("polling_data_2019-2023_stan_fit.Rda")
 
 ## Read in the data
 gallups <- ReadGallups("data/polling_data_2019-2023.tsv", "14.4.2019")
+elections <- ReadGallups("data/election_results_2019-2023.tsv", "14.4.2019")
+elections <- elections[grepl("Eduskuntavaalit", elections$Pollster), ]
 
 pdf(file="gp_poll_aggregator_fit.pdf", width=10, height=5)
-PlotFit(samples, gallups)
+PlotFit(samples, gallups, elections)
 dev.off()
