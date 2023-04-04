@@ -42,6 +42,8 @@ options(mc.cores = 4)
 
 ## Read in the data
 gallups <- ReadGallups("data/polling_data_2019-2023.tsv", "14.4.2019")
+elections <- ReadGallups("data/election_results_2019-2023.tsv", "14.4.2019")
+elections <- elections[grepl("Eduskuntavaalit", elections$Pollster), ]
 
 ## Process the gallup data into the Stan model format
 ## Process the gallup data into the Stan model format
@@ -54,6 +56,9 @@ stan.data <- list("N_obs" = nrow(gallups),
                   "P_obs" = length(4:ncol(gallups)) - 1,
                   "time_from_start_obs" = as.numeric(gallups$days_since_election/time.scaling.factor),
                   "party_support" = gallups[, 4:(ncol(gallups) - 1)],
+                  "election_result" = elections[, 4:(ncol(gallups) - 1)],
+                  "N_elections" = nrow(elections),
+                  "time_from_start_elections" = as.numeric(elections$days_since_election/time.scaling.factor),
                   "N_pollsters" = length(unique(gallups$Pollster)),
                   "pollsters" = as.numeric(factor(gallups$Pollster)),
                   "N_pred" = length(dates_to_predict) + 1, ## Predict 1 week further than requested

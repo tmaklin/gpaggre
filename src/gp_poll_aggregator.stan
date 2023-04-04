@@ -54,6 +54,11 @@ data {
     vector<lower=0>[N_obs] time_from_start_obs; // Time from first observation.
     matrix<lower=0, upper=100>[N_obs, P_obs] party_support; // Party support in percentages (0.0 to 100.0).
 
+    // Election data
+    int<lower=1> N_elections;
+    vector<lower=0>[N_elections] time_from_start_elections;
+    matrix<lower=0, upper=100>[N_elections, P_obs] election_result;
+
     // Pollster info
     int<lower=1> N_pollsters; // Total number of polling companies.
     int<lower=1, upper=N_pollsters> pollsters[N_obs]; // Integer vector indicating the pollling company.
@@ -65,7 +70,7 @@ data {
 
 transformed data {
     // Merge the observed and predicted values
-    int<lower=0> N = N_obs + N_pred; // Covariance matrix should have this size
+    int<lower=0> N = N_obs + N_elections + N_pred; // Covariance matrix should have this size
     vector<lower=0>[N] time_from_start; // 
     
     // Noise to keep the covariance matrices positive (semi) definite.
@@ -74,7 +79,7 @@ transformed data {
     // Data is constrained to sum up to 100%, unbound it to (-inf, inf)
     // via inverse additive logistic transformations
     int<lower=0> P = P_obs - 1; // Constraint means we have P-1 unbounded data points
-    matrix[N_obs, P] unbounded_support;
+    matrix[N_obs + N_elections, P] unbounded_support;
     for (n in 1:N_obs) {
 	// Unbound constrained support by taking elementwise log of P_obs - 1 elements
 	// and subtracting log of the last element from each value.
@@ -82,10 +87,16 @@ transformed data {
 	    unbounded_support[n, p] = log(party_support[n, p]/100.0) - log(party_support[n, P_obs]/100.0);
 	}
     }
+    for (n in 1:N_elections) {
+	for (p in 1:P) {
+	    unbounded_support[N_obs + n, p] = log(election_result[n, p]/100.0) - log(election_result[n, P_obs]/100.0);
+	}
+    }
 
-    // Merge observed and predicted values
+    // Merge polls, elections, and predicted values
     for (n1 in 1:N_obs) time_from_start[n1] = time_from_start_obs[n1];
-    for (n2 in 1:N_pred) time_from_start[N_obs + n2] = time_from_start_pred[n2];
+    for (n2 in 1:N_elections) time_from_start[N_obs + n2] = time_from_start_elections[n2];
+    for (n3 in 1:N_pred) time_from_start[N_obs + N_elections + n3] = time_from_start_pred[n3];
 }
 
 parameters {
@@ -168,20 +179,17 @@ model {
     for (i in 1:N_obs) {
 	unbounded_support[i, ] ~ multi_normal(bias + f[i, ], diag_matrix(rep_vector(sigma[pollsters[i]], P)));
     }
+    for (i in 1:N_elections) {
+	unbounded_support[N_obs + i, ] ~ multi_normal(bias + f[N_obs + i, ], diag_matrix(rep_vector(0.01, P)));
+    }
 }
 
 generated quantities {
     // Predict unbounded support on the requested time points
     matrix[N_pred, P] pred;
 
-    // Assume variance in unobserved points is the sum of the pollster variances
-    real sigma_sum = 0.0;
-    for (i in 1:N_pollsters) {
-	sigma_sum += sigma[i];
-    }
-
     // Predict points by sampling from multi_normal distribution with mean `bias + f` and diagonal covariance.
     for (n2 in 1:N_pred) {
-	pred[n2, ] = to_row_vector(multi_normal_rng(bias + f[N_obs + n2, ], diag_matrix(rep_vector(sigma_sum, P))));
+	pred[n2, ] = to_row_vector(multi_normal_rng(bias + f[N_obs + N_elections + n2, ], diag_matrix(rep_vector(0.01, P))));
     }
 }
